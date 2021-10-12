@@ -1,4 +1,4 @@
-package com.example.examplemod;
+package com.example.mediaframes;
 
 import com.mojang.blaze3d.matrix.MatrixStack;
 import com.mojang.blaze3d.vertex.IVertexBuilder;

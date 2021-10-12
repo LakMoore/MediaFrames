@@ -1,4 +1,4 @@
-package com.example.examplemod;
+package com.example.mediaframes;
 
 import java.nio.ByteBuffer;
 import java.nio.ShortBuffer;

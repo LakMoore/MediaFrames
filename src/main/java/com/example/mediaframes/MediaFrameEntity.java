@@ -1,4 +1,4 @@
-package com.example.examplemod;
+package com.example.mediaframes;
 
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.item.PaintingEntity;
