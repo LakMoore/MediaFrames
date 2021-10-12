@@ -2,10 +2,7 @@ package com.example.mediaframes;
 
 import java.nio.ByteBuffer;
 import java.nio.ShortBuffer;
-import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicReference;
 
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioSystem;
@@ -16,14 +13,8 @@ import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.bytedeco.javacv.FFmpegFrameGrabber;
 import org.bytedeco.javacv.Frame;
-import org.bytedeco.javacv.OpenCVFrameConverter;
-import org.bytedeco.librealsense.frame;
-import org.bytedeco.opencv.opencv_core.Mat;
-import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL15C;
-import org.lwjgl.opengl.GL43;
 
-import io.netty.buffer.ByteBuf;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.BufferBuilder;
 import net.minecraft.client.renderer.Tessellator;
@@ -31,26 +22,27 @@ import net.minecraft.client.renderer.WorldVertexBufferUploader;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.util.math.vector.Matrix4f;
 
-import static org.lwjgl.opengl.GL42.*;
+import static org.lwjgl.opengl.GL46.*;
 
 public class MediaPlayer implements Runnable {
 
-    private static final String VIDEO_SOURCE = "C:\\Users\\Stuart\\Downloads\\Picard.mp4";
+    private static final boolean DEBUG = false;
 
     private long startTime;
 
     private FFmpegFrameGrabber frameGrabber;
-    private Frame capturedFrame = null;
     private int videoFrameCount = 0;
     private int audioFrameCount = 0;
     private float oneVideoFrameTime;
     private int currentFrameCount = 0;
     SourceDataLine soundLine;
     private int textureIndex = 0;
+    private int pboIndex = 0;
+    private int pboNextIndex = 1;
     private int[] glPixelBufferId = new int[2];
     private int[] glTextureId = new int[2];
     private ByteBuffer[] pixelData = new ByteBuffer[2];
-    private static final int QUEUE_SIZE = 1000;
+    private static final int QUEUE_SIZE = 100;
 
     long t1, t2, t3, t4, t5, t6, t7;
 
@@ -58,10 +50,6 @@ public class MediaPlayer implements Runnable {
     private ArrayBlockingQueue<Frame> audioFrames = new ArrayBlockingQueue<>(QUEUE_SIZE);
 
     private boolean isPlaying;
-
-    public MediaPlayer() {
-        this(VIDEO_SOURCE);
-    }
 
     public MediaPlayer(String filename) {
         try {
@@ -112,18 +100,22 @@ public class MediaPlayer implements Runnable {
     public void run() {
         try {
             
-            int l = 2;
             boolean rendered = false;
+            Frame capturedFrame = null;
+
+            int l = 2;
             while(l > 0) {
                 l--;
 
-                t1 = System.nanoTime();
-                t2 = t1;
-                t3 = t1;
-                t4 = t1;
-                t5 = t1;
-                t6 = t1;
-                t7 = t1;
+                if (DEBUG) {
+                    t1 = System.nanoTime();
+                    t2 = t1;
+                    t3 = t1;
+                    t4 = t1;
+                    t5 = t1;
+                    t6 = t1;
+                    t7 = t1;    
+                }
 
                 if (
                     !isPlaying
@@ -134,9 +126,11 @@ public class MediaPlayer implements Runnable {
                 ) {
                     capturedFrame = frameGrabber.grab();
 
-                    t2 = System.nanoTime();
-                    t3 = t2;
-                    t4 = t2;
+                    if (DEBUG) {
+                        t2 = System.nanoTime();
+                        t3 = t2;
+                        t4 = t2;
+                    }
 
                     if (capturedFrame == null) {
                         System.out.format("Done! Found %d / %d frames (audio / images)%n", audioFrameCount, videoFrameCount);
@@ -154,7 +148,9 @@ public class MediaPlayer implements Runnable {
     
                         //System.out.format("Found an audio frame %d%n", audioFrameCount);
 
-                        t3 = System.nanoTime();
+                        if (DEBUG) {
+                            t3 = System.nanoTime();
+                        }
 
                     }
 
@@ -172,14 +168,18 @@ public class MediaPlayer implements Runnable {
     
                         //System.out.format("Found a video frame %d%n", videoFrameCount);
 
-                        t4 = System.nanoTime();
+                        if (DEBUG) {
+                            t4 = System.nanoTime();
+                        }
                     }
 
                 }
 
-                t5 = System.nanoTime();
-                t6 = t5;
-                t7 = t5;
+                if (DEBUG) {
+                    t5 = System.nanoTime();
+                    t6 = t5;
+                    t7 = t5;
+                }
 
                 // only start playing after we have some audio and video frames in the buffers
                 if (videoFrameCount > 3 && audioFrames.size() > 3) {
@@ -205,7 +205,10 @@ public class MediaPlayer implements Runnable {
                         outBuffer.asShortBuffer().put(channelSamplesShortBuffer);
                         soundLine.write(outBuffer.array(), 0, outBuffer.capacity());
                         //System.out.format("De-queing an audio frame. Qsize = %s%n", audioFrames.size()); 
-                        t6 = System.nanoTime();    
+
+                        if (DEBUG) {
+                            t6 = System.nanoTime();
+                        }
                     }
                 }
 
@@ -220,19 +223,25 @@ public class MediaPlayer implements Runnable {
                         updateTexture((ByteBuffer)videoFrame.image[0]);
                         //System.out.format("De-queing a video frame. Qsize = %s%n", videoFrames.size());
                         currentFrameCount++;
-                        t6 = System.nanoTime();
+                        if (DEBUG) {
+                            t6 = System.nanoTime();
+                        }
 
                         renderTexture();
                         rendered = true;
-                        t7 = System.nanoTime();
+                        
+                        if (DEBUG) {
+                            t7 = System.nanoTime();
+                        }
                     }
                 }
 
-
-                System.out.printf("F:%4d  V:%4d  A:%4d  Grab:%,12d   QA:%,12d   QV:%,12d   UpA:%,12d   UpV:%,12d    Render:%,12d   Total:%,12d  Elapsed:%,12d%n", 
-                    videoFrameCount, currentFrameCount, 0,
-                    t2 - t1, t3 - t2, t4 - t3, t5 - t4, t6 - t5, t7 - t6, t7 - t1, System.nanoTime() - startTime
-                );
+                if (DEBUG) {
+                    System.out.printf("F:%4d  V:%4d  A:%4d  Grab:%,12d   QA:%,12d   QV:%,12d   UpA:%,12d   UpV:%,12d    Render:%,12d   Total:%,12d  Elapsed:%,12d%n", 
+                        videoFrameCount, currentFrameCount, 0,
+                        t2 - t1, t3 - t2, t4 - t3, t5 - t4, t6 - t5, t7 - t6, t7 - t1, System.nanoTime() - startTime
+                    );
+                }
 
             }
             if (!rendered) {
@@ -255,11 +264,11 @@ public class MediaPlayer implements Runnable {
         // glBufferData() with NULL pointer reserves only memory space.
         int dataSize = imageWidth * imageHeight * channelCount;
         glGenBuffers(glPixelBufferId);
-        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, glPixelBufferId[0]);
-        glBufferData(GL_PIXEL_UNPACK_BUFFER, dataSize, GL_DYNAMIC_DRAW);
-        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, glPixelBufferId[1]);
-        glBufferData(GL_PIXEL_UNPACK_BUFFER, dataSize, GL_DYNAMIC_DRAW);
-        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+        for (int i = 0; i < 2; i++) {
+            glBindBuffer(GL_PIXEL_UNPACK_BUFFER, glPixelBufferId[i]);
+            glBufferData(GL_PIXEL_UNPACK_BUFFER, dataSize, GL_STREAM_DRAW);
+            glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);    
+        }
     }
 
     private void setupTextures(int imageWidth, int imageHeight, int channelCount) {
@@ -283,15 +292,20 @@ public class MediaPlayer implements Runnable {
     }
 
     private void updateTexture(ByteBuffer image) {
-        textureIndex = textureIndex ^ 1;
-        RenderSystem.bindTexture(glTextureId[textureIndex]);
-        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, glPixelBufferId[textureIndex]);
+        textureIndex = 0; // textureIndex ^ 1;
+        pboIndex = (pboIndex + 1) % 2;
+        pboNextIndex = (pboIndex + 1) % 2;
+        glBindTexture(GL_TEXTURE_2D, glTextureId[textureIndex]);
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, glPixelBufferId[pboIndex]);
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, frameGrabber.getImageWidth(), frameGrabber.getImageHeight(), GL_BGR, GL_UNSIGNED_BYTE, 0);
-        glBufferData(GL_PIXEL_UNPACK_BUFFER, image.limit(), GL_STREAM_DRAW);
-        pixelData[textureIndex].rewind();
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        // ======= NEXT FRAME =======
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, glPixelBufferId[pboNextIndex]);
+        // get the buffer
+        pixelData[pboNextIndex] = GL15C.glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY, image.limit(), pixelData[pboNextIndex]);
         image.rewind();
-        pixelData[textureIndex] = GL15C.glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY, image.limit(), pixelData[textureIndex]);
-        pixelData[textureIndex].put(image);
+        pixelData[pboNextIndex].put(image);
         glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
     }
@@ -335,8 +349,24 @@ public class MediaPlayer implements Runnable {
         bufferbuilder.finishDrawing();
         RenderSystem.disableAlphaTest();
         WorldVertexBufferUploader.draw(bufferbuilder);
+        RenderSystem.bindTexture(0);
         RenderSystem.popMatrix();
 
+    }
+
+    public void finish() {
+        try {
+            if (frameGrabber != null) {
+                frameGrabber.stop();
+                soundLine.stop();
+                for (int i = 0; i < 2; i++) {
+                    RenderSystem.deleteTexture(this.glTextureId[i]);
+                    RenderSystem.glDeleteBuffers(this.glPixelBufferId[i]);
+                }                        
+            }                
+        } catch (Exception e) {
+            //TODO: handle exception
+        }
     }
 
 }

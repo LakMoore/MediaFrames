@@ -2,14 +2,20 @@ package com.example.mediaframes;
 
 import net.minecraft.block.Block;
 import net.minecraft.block.Blocks;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.settings.KeyBinding;
+import net.minecraft.util.text.StringTextComponent;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.client.event.RenderGameOverlayEvent.ElementType;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegistryEvent;
+import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.TickEvent.Phase;
 import net.minecraftforge.event.TickEvent.RenderTickEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.InterModComms;
+import net.minecraftforge.fml.client.registry.ClientRegistry;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
@@ -21,15 +27,20 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.lwjgl.glfw.GLFW;
 
+import java.lang.reflect.Field;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 // The value here should match an entry in the META-INF/mods.toml file
-@Mod("examplemod")
+@Mod("mediaframes")
 public class MediaFrames
 {
     // Directly reference a log4j logger.
     private static final Logger LOGGER = LogManager.getLogger();
+
+    private static final KeyBinding OPEN_GUI = new KeyBinding("Open MediaFrame GUI", GLFW.GLFW_KEY_V, "Media Frames");
 
     public MediaFrames() {
         // Register the setup method for modloading
@@ -55,6 +66,8 @@ public class MediaFrames
     private void doClientStuff(final FMLClientSetupEvent event) {
         // do something that can only be done on the client
         LOGGER.info("Got game settings {}", event.getMinecraftSupplier().get().gameSettings);
+
+        ClientRegistry.registerKeyBinding(OPEN_GUI);
     }
 
     private void enqueueIMC(final InterModEnqueueEvent event)
@@ -88,32 +101,24 @@ public class MediaFrames
         }
     }
 
-    MediaPlayer mediaPlayer = null;
-    boolean ready = false;
-    boolean started = false;
-    long lastTime;
+    private static final String VIDEO_SOURCE = "C:\\Users\\Stuart\\Downloads\\Picard.mp4";
 
-    @SubscribeEvent
-    public void onRender(RenderTickEvent event) {
-        if (event.phase == Phase.END) {
-
-            if (!started && mediaPlayer == null) {
-                mediaPlayer = new MediaPlayer();
-            }
-            if (started) {
-                mediaPlayer.run();
+	@SubscribeEvent (priority = EventPriority.LOWEST)
+	public void onClientTick(TickEvent.ClientTickEvent event) {
+		if(
+            event.phase.equals(Phase.END)
+            && OPEN_GUI.isPressed()
+        ) {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.currentScreen == null) {
+                mc.displayGuiScreen(
+                    new MediaFrameScreen(
+                        new StringTextComponent("Video"), 
+                        VIDEO_SOURCE
+                    )
+                );    
             }
         }
-    }
-
-    @SubscribeEvent
-    public void doRender(RenderGameOverlayEvent.Pre event) {
-        if (event.getType() != ElementType.HOTBAR) {
-            return;
-        }
-
-        started = true;
-
-    }
+	}
 
 }
